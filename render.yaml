@@ -1,0 +1,26 @@
+# Render Blueprint: https://render.com/docs/blueprint-spec
+# After deploy, set secrets in the Render dashboard: DATABASE_URL, CORS_ORIGIN, and optional AI keys.
+
+services:
+  - type: web
+    name: ilearn-api
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build -w shared && npm run build -w backend && npm run prisma:deploy -w backend
+    startCommand: npm run start:prod -w backend
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_URL
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: AI_PROVIDER
+        sync: false
+      - key: SERPER_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false

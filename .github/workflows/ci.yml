@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint:ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Test (backend e2e)
+        run: npm run test:e2e -w backend
+
+  # Optional: trigger a Render redeploy when GitHub auto-deploy is disabled.
+  # Add secret RENDER_DEPLOY_HOOK_URL from Render → Service → Settings → Deploy Hook.
+  render-hook:
+    needs: [build]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render deploy hook
+        env:
+          HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "${HOOK_URL:-}" ]; then
+            echo "RENDER_DEPLOY_HOOK_URL not set — skipping (use Render GitHub integration instead)."
+            exit 0
+          fi
+          curl -fsS -X POST "$HOOK_URL"
