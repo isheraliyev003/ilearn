@@ -1,0 +1,38 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Topic {
+  id        String      @id @default(cuid())
+  title     String
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  words     WordEntry[]
+
+  @@index([createdAt])
+}
+
+model WordEntry {
+  id               String   @id @default(cuid())
+  topicId          String
+  englishTerm      String
+  uzbekTranslation String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  topic            Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@index([topicId])
+  @@index([topicId, createdAt])
+}

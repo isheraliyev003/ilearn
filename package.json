@@ -1,0 +1,21 @@
+{
+  "name": "ilearn",
+  "private": true,
+  "workspaces": [
+    "shared",
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "concurrently -n shared,frontend,backend -c magenta,blue,green \"npm run watch -w shared\" \"npm run dev -w frontend\" \"npm run start:dev -w backend\"",
+    "build": "npm run build -w shared && npm run build -w frontend && npm run build -w backend",
+    "lint": "npm run lint -w shared && npm run lint -w frontend && npm run lint -w backend",
+    "db:generate": "npm run prisma:generate -w backend",
+    "db:migrate": "npm run prisma:migrate -w backend",
+    "db:studio": "npm run prisma:studio -w backend",
+    "db:deploy": "npm run prisma:deploy -w backend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
