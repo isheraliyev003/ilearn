@@ -1,5 +1,6 @@
 # Render Blueprint: https://render.com/docs/blueprint-spec
-# After deploy, set secrets in the Render dashboard: DATABASE_URL, CORS_ORIGIN, and optional AI keys.
+# After deploy, set secrets in the Render dashboard: DATABASE_URL, CORS_ORIGIN,
+# email auth settings, and optional AI keys.
 
 services:
   - type: web
@@ -15,6 +16,10 @@ services:
       - key: DATABASE_URL
         sync: false
       - key: CORS_ORIGIN
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
         sync: false
       - key: AI_PROVIDER
         sync: false

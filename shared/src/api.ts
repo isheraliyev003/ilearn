@@ -1,8 +1,16 @@
 /** Shared API types aligned with Nest responses. */
 
+export type UserDto = {
+  id: string;
+  fullName: string;
+  email: string;
+};
+
 export type TopicDto = {
   id: string;
   title: string;
+  totalWords: number;
+  learnedWords: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -12,6 +20,7 @@ export type WordEntryDto = {
   topicId: string;
   englishTerm: string;
   uzbekTranslation: string;
+  isLearned: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -21,7 +30,37 @@ export type PaginatedWordsResponse = {
   nextCursor: string | null;
 };
 
+export type QuizQuestionDto = {
+  id: string;
+  wordId: string;
+  englishTerm: string;
+  options: string[];
+  correctAnswer: string;
+};
+
+export type TopicQuizDto = {
+  topicId: string;
+  topicTitle: string;
+  totalQuestions: number;
+  questions: QuizQuestionDto[];
+};
+
+export type AuthUserResponse = {
+  user: UserDto | null;
+};
+
+export type QuizResultItemDto = {
+  wordId: string;
+  isCorrect: boolean;
+};
+
 export const API_PATHS = {
+  authMe: '/auth/me',
+  authSignUpRequestCode: '/auth/sign-up/request-code',
+  authSignUpVerifyCode: '/auth/sign-up/verify-code',
+  authSignUpComplete: '/auth/sign-up/complete',
+  authSignIn: '/auth/sign-in',
+  authLogout: '/auth/logout',
   health: '/health',
   topics: '/topics',
   words: '/words',
@@ -39,6 +78,14 @@ export function topicPath(topicId: string): string {
 
 export function topicsWordsPath(topicId: string): string {
   return `${API_PATHS.topics}/${encodeURIComponent(topicId)}/words`;
+}
+
+export function topicQuizPath(topicId: string): string {
+  return `${API_PATHS.topics}/${encodeURIComponent(topicId)}/quiz`;
+}
+
+export function topicQuizResultsPath(topicId: string): string {
+  return `${topicQuizPath(topicId)}/results`;
 }
 
 export function wordPath(wordId: string): string {

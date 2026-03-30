@@ -1,0 +1,2 @@
+ALTER TABLE "WordEntry"
+ADD COLUMN "isLearned" BOOLEAN NOT NULL DEFAULT false;

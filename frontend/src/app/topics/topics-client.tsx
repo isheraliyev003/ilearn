@@ -1,30 +1,29 @@
 "use client";
 
 import type { TopicDto } from "@ilearn/shared";
-import { API_PATHS, joinApiUrl, topicPath } from "@ilearn/shared";
-import { useMutation } from "@tanstack/react-query";
+import { API_PATHS, topicPath } from "@ilearn/shared";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { getApiBase } from "@/lib/api";
+import { useState } from "react";
+import { apiFetch } from "@/lib/api";
+import { fetchTopics, topicQueryKeys } from "@/lib/topic-queries";
 
 type Props = {
-  initialTopics: TopicDto[];
   topicsError: string | null;
 };
 
-export function TopicsClient({ initialTopics, topicsError }: Props) {
-  const router = useRouter();
+export function TopicsClient({ topicsError }: Props) {
+  const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
-  const [topics, setTopics] = useState(initialTopics);
-
-  useEffect(() => {
-    setTopics(initialTopics);
-  }, [initialTopics]);
+  const topicsQuery = useQuery({
+    queryKey: topicQueryKeys.all,
+    queryFn: fetchTopics,
+    retry: topicsError ? 0 : undefined,
+  });
 
   const deleteTopic = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(joinApiUrl(getApiBase(), topicPath(id)), {
+      const res = await apiFetch(topicPath(id), {
         method: "DELETE",
       });
       if (!res.ok) {
@@ -33,14 +32,29 @@ export function TopicsClient({ initialTopics, topicsError }: Props) {
       }
       return res.json() as Promise<{ ok: true }>;
     },
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: topicQueryKeys.all });
+      const previousTopics = queryClient.getQueryData<TopicDto[]>(
+        topicQueryKeys.all,
+      );
+      queryClient.setQueryData<TopicDto[]>(topicQueryKeys.all, (current = []) =>
+        current.filter((topic) => topic.id !== id),
+      );
+      return { previousTopics };
+    },
+    onError: (_error, _id, context) => {
+      if (context?.previousTopics) {
+        queryClient.setQueryData(topicQueryKeys.all, context.previousTopics);
+      }
+    },
     onSuccess: () => {
-      void router.refresh();
+      void queryClient.invalidateQueries({ queryKey: topicQueryKeys.all });
     },
   });
 
   const createTopic = useMutation({
     mutationFn: async (t: string) => {
-      const res = await fetch(joinApiUrl(getApiBase(), API_PATHS.topics), {
+      const res = await apiFetch(API_PATHS.topics, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: t }),
@@ -51,16 +65,29 @@ export function TopicsClient({ initialTopics, topicsError }: Props) {
       }
       return res.json() as Promise<TopicDto>;
     },
-    onSuccess: () => {
+    onSuccess: (createdTopic) => {
       setTitle("");
-      void router.refresh();
+      queryClient.setQueryData<TopicDto[]>(topicQueryKeys.all, (current = []) =>
+        [createdTopic, ...current.filter((topic) => topic.id !== createdTopic.id)],
+      );
     },
   });
 
-  const loadError = topicsError;
+  const topics = topicsQuery.data ?? [];
+  const loadError =
+    topicsError ??
+    (topicsQuery.isError
+      ? topicsQuery.error instanceof Error
+        ? topicsQuery.error.message
+        : "Could not load topics from the server"
+      : null);
+  const getLearnedPercent = (topic: TopicDto) =>
+    topic.totalWords === 0
+      ? 0
+      : Math.round((topic.learnedWords / topic.totalWords) * 100);
 
   return (
-    <div className="mx-auto flex min-h-full max-w-3xl flex-col gap-10 px-4 py-12 sm:px-6">
+    <div className="mx-auto flex min-h-full max-w-5xl flex-col gap-10 px-4 py-12 sm:px-6">
       <header className="space-y-2">
         <p className="text-sm font-medium uppercase tracking-[0.2em] text-indigo-300/90">
           ilearn
@@ -121,6 +148,11 @@ export function TopicsClient({ initialTopics, topicsError }: Props) {
         {loadError && (
           <p className="text-sm text-red-300">{loadError}</p>
         )}
+        {!loadError && topicsQuery.isPending && (
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-6 py-14 text-center">
+            <p className="text-slate-400">Loading topics…</p>
+          </div>
+        )}
         {!loadError && topics.length === 0 && (
           <div className="rounded-2xl border border-dashed border-white/15 bg-white/[0.03] px-6 py-14 text-center">
             <p className="text-slate-400">
@@ -132,7 +164,7 @@ export function TopicsClient({ initialTopics, topicsError }: Props) {
           <ul className="grid gap-3">
             {topics.map((topic) => (
               <li key={topic.id}>
-                <div className="flex items-stretch gap-2 rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.02] transition hover:border-indigo-400/40 hover:shadow-lg hover:shadow-indigo-950/50">
+                <div className="flex items-stretch rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.02] transition hover:border-indigo-400/40 hover:shadow-lg hover:shadow-indigo-950/50">
                   <Link
                     href={topicPath(topic.id)}
                     className="group flex min-w-0 flex-1 items-center justify-between gap-4 px-5 py-4"
@@ -141,11 +173,27 @@ export function TopicsClient({ initialTopics, topicsError }: Props) {
                       <p className="truncate font-medium text-white group-hover:text-indigo-100">
                         {topic.title}
                       </p>
-                      <p className="text-xs text-slate-500">
-                        {new Date(topic.createdAt).toLocaleDateString(undefined, {
-                          dateStyle: "medium",
-                        })}
-                      </p>
+                      <div className="mt-1 space-y-2">
+                        <p className="text-xs text-slate-500">
+                          {new Date(topic.createdAt).toLocaleDateString(undefined, {
+                            dateStyle: "medium",
+                          })}
+                        </p>
+                        <div className="max-w-xs space-y-1">
+                          <div className="flex items-center justify-between gap-3 text-[11px] uppercase tracking-wide text-slate-400">
+                            <span>Learned</span>
+                            <span>
+                              {topic.learnedWords}/{topic.totalWords}
+                            </span>
+                          </div>
+                          <div className="h-2 overflow-hidden rounded-full bg-white/10">
+                            <div
+                              className="h-full rounded-full bg-emerald-500 transition-[width]"
+                              style={{ width: `${getLearnedPercent(topic)}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
                     </div>
                     <span
                       className="shrink-0 text-indigo-300/80 transition group-hover:translate-x-0.5 group-hover:text-indigo-200"
@@ -153,6 +201,12 @@ export function TopicsClient({ initialTopics, topicsError }: Props) {
                     >
                       →
                     </span>
+                  </Link>
+                  <Link
+                    href={`${topicPath(topic.id)}/quiz`}
+                    className="shrink-0 border-l border-white/10 px-4 text-sm font-medium text-emerald-200 transition hover:bg-emerald-500/10 hover:text-emerald-100 flex items-center"
+                  >
+                    Quiz
                   </Link>
                   <button
                     type="button"

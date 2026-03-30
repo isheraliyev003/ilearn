@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { AuthModule } from './auth/auth.module';
 import { HealthModule } from './health/health.module';
 import { OpenAiModule } from './openai/openai.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -12,6 +13,7 @@ import { WordsModule } from './words/words.module';
       isGlobal: true,
     }),
     PrismaModule,
+    AuthModule,
     OpenAiModule,
     HealthModule,
     TopicsModule,

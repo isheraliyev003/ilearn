@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { ListWordsQueryDto } from './dto/list-words-query.dto';
 
@@ -6,9 +10,9 @@ import { ListWordsQueryDto } from './dto/list-words-query.dto';
 export class WordsService {
   constructor(private readonly prisma: PrismaClient) {}
 
-  async list(query: ListWordsQueryDto) {
-    const topic = await this.prisma.topic.findUnique({
-      where: { id: query.topicId },
+  async list(userId: string, query: ListWordsQueryDto) {
+    const topic = await this.prisma.topic.findFirst({
+      where: { id: query.topicId, userId },
     });
     if (!topic) {
       throw new NotFoundException('Topic not found');
@@ -43,14 +47,45 @@ export class WordsService {
     return { items, nextCursor };
   }
 
-  async remove(wordId: string) {
-    const row = await this.prisma.wordEntry.findUnique({
-      where: { id: wordId },
+  async remove(userId: string, wordId: string) {
+    const row = await this.prisma.wordEntry.findFirst({
+      where: {
+        id: wordId,
+        topic: { userId },
+      },
     });
     if (!row) {
       throw new NotFoundException('Word not found');
     }
     await this.prisma.wordEntry.delete({ where: { id: wordId } });
     return { ok: true as const };
+  }
+
+  async updateTranslation(
+    userId: string,
+    wordId: string,
+    uzbekTranslation: string,
+  ) {
+    const row = await this.prisma.wordEntry.findFirst({
+      where: {
+        id: wordId,
+        topic: { userId },
+      },
+    });
+    if (!row) {
+      throw new NotFoundException('Word not found');
+    }
+
+    const normalizedTranslation = uzbekTranslation.trim();
+    if (!normalizedTranslation) {
+      throw new BadRequestException('Please enter an Uzbek translation.');
+    }
+
+    return this.prisma.wordEntry.update({
+      where: { id: wordId },
+      data: {
+        uzbekTranslation: normalizedTranslation,
+      },
+    });
   }
 }

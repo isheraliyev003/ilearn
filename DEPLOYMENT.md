@@ -17,6 +17,8 @@ Stack: **Neon** (PostgreSQL), **Vercel** (Next.js frontend), **Render** (NestJS 
 3. In the **ilearn-api** service → **Environment**, set:
    - `DATABASE_URL` — Neon connection string
    - `CORS_ORIGIN` — your Vercel URL, e.g. `https://your-app.vercel.app` (no trailing slash)
+   - `RESEND_API_KEY` — API key for sending email sign-in codes
+   - `EMAIL_FROM` — verified sender, e.g. `ilearn <auth@yourdomain.com>`
    - Optional: `AI_PROVIDER`, `SERPER_API_KEY`, `GEMINI_API_KEY`, `OPENAI_API_KEY` (see `backend/.env.example`)
 
 **Option B — Manual Web Service**
@@ -30,15 +32,19 @@ Stack: **Neon** (PostgreSQL), **Vercel** (Next.js frontend), **Render** (NestJS 
 
 `PORT` is set by Render; do not override unless you know you need to.
 
-## 3. Frontend (Vercel)
+For local development, email auth has a console fallback: if `RESEND_API_KEY`
+or `EMAIL_FROM` are missing, or if email delivery fails, the backend logs the
+6-digit sign-in code to the terminal instead of blocking sign-in.
+
+## 3. Frontend (Vercel) — do this after the API is live
 
 1. Import the repo at [https://vercel.com](https://vercel.com).
 2. **Root Directory:** `frontend`
 3. Framework: Next.js (auto-detected). `frontend/vercel.json` installs from the repo root and builds `shared` + `frontend`.
-4. **Environment variables:**
-   - `NEXT_PUBLIC_API_URL` — your Render API URL, e.g. `https://ilearn-api.onrender.com` (no trailing slash)
-
-Redeploy the frontend after the API URL is stable.
+4. **Environment variables** (Production — and Preview if you want previews to hit the same API):
+   - **`NEXT_PUBLIC_API_URL`** = your Render API **origin** with **no trailing slash**, e.g. `https://ilearn-api-twwu.onrender.com`
+5. Deploy. Open the Vercel URL and confirm pages load.
+6. **CORS:** In Render → **ilearn-api** → **Environment**, set **`CORS_ORIGIN`** to allowed origins, **no path, no trailing slash**. You can list several separated by commas, e.g. `http://localhost:3000,https://ilearn-frontend-eight.vercel.app`. Save — Render will redeploy. Without this, the browser may block API calls from the deployed site.
 
 ## 4. GitHub Actions
 
@@ -49,4 +55,5 @@ Redeploy the frontend after the API URL is stable.
 
 1. Neon → get `DATABASE_URL`
 2. Render → set env, deploy API, confirm `GET https://<your-api>/health`
-3. Vercel → set `NEXT_PUBLIC_API_URL` to that API origin, deploy
+3. Request a sign-in code locally or in production and confirm the email arrives
+4. Vercel → set `NEXT_PUBLIC_API_URL` to that API origin, deploy
