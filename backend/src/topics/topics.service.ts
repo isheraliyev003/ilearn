@@ -37,7 +37,7 @@ export class TopicsService {
 
   private assertValidEnglishTerm(englishTerm: string) {
     const normalized = englishTerm.trim().replace(/\s+/g, ' ');
-    const allowedPattern = /^[A-Za-z]+(?:[ '-][A-Za-z]+)*$/;
+    const allowedPattern = /^[A-Za-z]+(?:[ '-][A-Za-z]+|,\s*[A-Za-z]+)*$/;
 
     if (!normalized) {
       throw new BadRequestException('Please enter an English word or phrase.');
@@ -59,7 +59,7 @@ export class TopicsService {
 
     if (!allowedPattern.test(normalized)) {
       throw new BadRequestException(
-        'Only English letters, spaces, apostrophes, and hyphens are allowed.',
+        'Only English letters, spaces, commas, apostrophes, and hyphens are allowed.',
       );
     }
   }

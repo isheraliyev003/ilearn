@@ -139,3 +139,38 @@ body::after {
   background-color: rgba(99, 102, 241, 0.35);
   color: #f8fafc;
 }
+
+@keyframes confirm-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes confirm-panel-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.confirm-dialog-backdrop {
+  animation: confirm-backdrop-in 0.22s ease-out forwards;
+}
+
+.confirm-dialog-panel {
+  animation: confirm-panel-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .confirm-dialog-backdrop,
+  .confirm-dialog-panel {
+    animation: none;
+  }
+}

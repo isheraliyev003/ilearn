@@ -20,6 +20,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { apiFetch } from "@/lib/api";
 import { readErrorMessage } from "@/lib/errors";
 import { decodeHtmlEntities } from "@/lib/text";
@@ -43,6 +44,11 @@ export function TopicWordsClient({ topicId }: Props) {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [editingWordId, setEditingWordId] = useState<string | null>(null);
   const [editingTranslation, setEditingTranslation] = useState("");
+  const [topicDeleteOpen, setTopicDeleteOpen] = useState(false);
+  const [wordDelete, setWordDelete] = useState<{
+    id: string;
+    term: string;
+  } | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -280,7 +286,7 @@ export function TopicWordsClient({ topicId }: Props) {
   return (
     <div className="mx-auto flex min-h-full max-w-5xl flex-col gap-8 px-4 py-10 sm:px-6">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-2">
+        <div className="min-w-0 flex-1 space-y-2">
           <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
             {topicQuery.data?.title ?? "Loading topic…"}
           </h1>
@@ -288,32 +294,6 @@ export function TopicWordsClient({ topicId }: Props) {
             Add an English word or phrase. We translate it to Uzbek and save
             both.
           </p>
-          {topicQuery.data && (
-            <div className="max-w-sm space-y-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
-              <div className="flex items-center justify-between gap-3 text-xs uppercase tracking-[0.18em] text-slate-400">
-                <span>Learned progress</span>
-                <span>
-                  {topicQuery.data.learnedWords}/{topicQuery.data.totalWords}
-                </span>
-              </div>
-              <div className="h-2 overflow-hidden rounded-full bg-white/10">
-                <div
-                  className="h-full rounded-full bg-emerald-500 transition-[width]"
-                  style={{
-                    width: `${
-                      topicQuery.data.totalWords === 0
-                        ? 0
-                        : Math.round(
-                            (topicQuery.data.learnedWords /
-                              topicQuery.data.totalWords) *
-                              100,
-                          )
-                    }%`,
-                  }}
-                />
-              </div>
-            </div>
-          )}
         </div>
         <div className="flex shrink-0 items-center gap-3">
           <Link
@@ -325,13 +305,40 @@ export function TopicWordsClient({ topicId }: Props) {
           <button
             type="button"
             disabled={deleteTopic.isPending}
-            onClick={() => deleteTopic.mutate()}
+            onClick={() => setTopicDeleteOpen(true)}
             className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-200 transition hover:bg-red-500/20 disabled:opacity-40"
           >
             {deleteTopic.isPending ? "Deleting…" : "Delete topic"}
           </button>
         </div>
       </header>
+
+      {topicQuery.data && (
+        <div className="w-full space-y-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+          <div className="flex items-center justify-between gap-3 text-xs uppercase tracking-[0.18em] text-slate-400">
+            <span>Learned progress</span>
+            <span>
+              {topicQuery.data.learnedWords}/{topicQuery.data.totalWords}
+            </span>
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
+            <div
+              className="h-full rounded-full bg-emerald-500 transition-[width]"
+              style={{
+                width: `${
+                  topicQuery.data.totalWords === 0
+                    ? 0
+                    : Math.round(
+                        (topicQuery.data.learnedWords /
+                          topicQuery.data.totalWords) *
+                          100,
+                      )
+                }%`,
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       <form
         className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/5 p-5 shadow-xl shadow-indigo-950/40 backdrop-blur-sm lg:flex-row lg:items-end"
@@ -538,7 +545,12 @@ export function TopicWordsClient({ topicId }: Props) {
                             type="button"
                             title="Delete word"
                             disabled={deleteWord.isPending}
-                            onClick={() => deleteWord.mutate(w.id)}
+                            onClick={() =>
+                              setWordDelete({
+                                id: w.id,
+                                term: w.englishTerm,
+                              })
+                            }
                             className="rounded-lg px-2 py-1 text-xs text-red-300/90 transition hover:bg-red-500/15 hover:text-red-200"
                           >
                             Delete
@@ -577,7 +589,9 @@ export function TopicWordsClient({ topicId }: Props) {
                   <button
                     type="button"
                     disabled={deleteWord.isPending}
-                    onClick={() => deleteWord.mutate(w.id)}
+                    onClick={() =>
+                      setWordDelete({ id: w.id, term: w.englishTerm })
+                    }
                     className="text-xs text-red-300/90 hover:text-red-200"
                   >
                     Delete
@@ -644,6 +658,46 @@ export function TopicWordsClient({ topicId }: Props) {
           <p className="text-center text-sm text-slate-500">Loading more…</p>
         )}
       </div>
+
+      <ConfirmDialog
+        open={topicDeleteOpen}
+        onClose={() => setTopicDeleteOpen(false)}
+        title="Delete this topic?"
+        description={
+          topicQuery.data
+            ? `“${topicQuery.data.title}” and all words in it will be permanently removed.`
+            : "This topic and all words in it will be permanently removed."
+        }
+        confirmLabel="Delete topic"
+        cancelLabel="Cancel"
+        loading={deleteTopic.isPending}
+        onConfirm={() => {
+          deleteTopic.mutate(undefined, {
+            onSettled: () => setTopicDeleteOpen(false),
+          });
+        }}
+      />
+
+      <ConfirmDialog
+        open={!!wordDelete}
+        onClose={() => setWordDelete(null)}
+        title="Delete this word?"
+        description={
+          wordDelete
+            ? `Remove “${wordDelete.term}” from this topic?`
+            : undefined
+        }
+        confirmLabel="Delete word"
+        cancelLabel="Cancel"
+        loading={deleteWord.isPending}
+        onConfirm={() => {
+          if (!wordDelete) return;
+          const id = wordDelete.id;
+          deleteWord.mutate(id, {
+            onSettled: () => setWordDelete(null),
+          });
+        }}
+      />
     </div>
   );
 }

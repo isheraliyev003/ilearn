@@ -5,6 +5,7 @@ import { API_PATHS, topicPath } from "@ilearn/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { apiFetch } from "@/lib/api";
 import { fetchTopics, topicQueryKeys } from "@/lib/topic-queries";
 
@@ -15,6 +16,10 @@ type Props = {
 export function TopicsClient({ topicsError }: Props) {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
   const topicsQuery = useQuery({
     queryKey: topicQueryKeys.all,
     queryFn: fetchTopics,
@@ -169,7 +174,7 @@ export function TopicsClient({ topicsError }: Props) {
                     href={topicPath(topic.id)}
                     className="group flex min-w-0 flex-1 items-center justify-between gap-4 px-5 py-4"
                   >
-                    <div className="min-w-0">
+                    <div className="min-w-0 w-full">
                       <p className="truncate font-medium text-white group-hover:text-indigo-100">
                         {topic.title}
                       </p>
@@ -212,7 +217,9 @@ export function TopicsClient({ topicsError }: Props) {
                     type="button"
                     title="Delete topic"
                     disabled={deleteTopic.isPending}
-                    onClick={() => deleteTopic.mutate(topic.id)}
+                    onClick={() =>
+                      setDeleteTarget({ id: topic.id, title: topic.title })
+                    }
                     className="shrink-0 rounded-r-2xl border-l border-white/10 px-4 text-sm text-red-300/90 transition hover:bg-red-500/10 hover:text-red-200 disabled:opacity-40"
                   >
                     Delete
@@ -223,6 +230,27 @@ export function TopicsClient({ topicsError }: Props) {
           </ul>
         )}
       </section>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        title="Delete this topic?"
+        description={
+          deleteTarget
+            ? `“${deleteTarget.title}” and all words in it will be permanently removed.`
+            : undefined
+        }
+        confirmLabel="Delete topic"
+        cancelLabel="Cancel"
+        loading={deleteTopic.isPending}
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          const id = deleteTarget.id;
+          deleteTopic.mutate(id, {
+            onSettled: () => setDeleteTarget(null),
+          });
+        }}
+      />
     </div>
   );
 }
